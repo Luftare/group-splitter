@@ -1,9 +1,9 @@
 export const theme = {
   colors: {
-    red: "#FF4B4B",
-    green: "#4BFF7B",
-    orange: "#FFB84B",
-    blue: "#4B7BFF",
+    red: "red",
+    green: "green",
+    orange: "orange",
+    blue: "blue",
     yellow: "#FFF44B",
     teal: "#4BFFF4",
     pink: "#FF4BCE",
@@ -11,7 +11,7 @@ export const theme = {
     text: "#222",
     shapeBg: "#fff",
   },
-  shapes: ["circle", "square", "triangle", "hexagon"],
+  shapes: ["circle", "square", "triangle", "star", "diamond"],
   sizes: {
     tag: 64,
     font: 18,

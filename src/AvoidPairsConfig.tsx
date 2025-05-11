@@ -38,11 +38,23 @@ export const AvoidPairsConfig = ({
         gap: theme.sizes.spacing * 2,
       }}
     >
-      <h2>Avoid Pairs</h2>
+      <p>
+        Sometimes the chemistry just doesn't work out too well between two
+        individuals.
+        <button
+          className="text-button"
+          style={{ marginLeft: "8px" }}
+          onClick={addPair}
+        >
+          + Avoid pair
+        </button>
+      </p>
+
       <div
         style={{
           display: "flex",
           flexDirection: "column",
+          alignItems: "center",
           gap: theme.sizes.spacing,
         }}
       >
@@ -76,10 +88,12 @@ export const AvoidPairsConfig = ({
                 </option>
               ))}
             </select>
-            <button onClick={() => deletePair(i)}>🗑️</button>
+
+            <button onClick={() => deletePair(i)} className="naked-button">
+              X
+            </button>
           </div>
         ))}
-        <button onClick={addPair}>Add pair</button>
       </div>
     </div>
   );

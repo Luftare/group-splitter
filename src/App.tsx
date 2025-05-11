@@ -8,7 +8,7 @@ import { GroupConfig } from "./GroupConfig";
 import { ParticipantInput } from "./ParticipantInput";
 import { AvoidPairsConfig } from "./AvoidPairsConfig";
 
-const defaultConfig = { numbers: 4, letters: 4, colors: 4, shapes: 2 };
+const defaultConfig = { numbers: 4, letters: 4, colors: 3, shapes: 2 };
 
 const App: React.FC = () => {
   const [avoidPairs, setAvoidPairs] = useState<string[][]>([]);
@@ -22,26 +22,49 @@ const App: React.FC = () => {
     .filter(Boolean);
   const tags = assignGroups(names, config, avoidPairs);
 
-  const controls = (
+  const hasParticipants = names.length > 0;
+
+  const participantContent = (
     <>
-      <h1>Group Splitter</h1>
-      <div style={{ marginBottom: theme.sizes.spacing * 2 }}>
-        <button
-          onClick={() => setParticipants(sampleParticipants)}
-          style={{ marginRight: theme.sizes.spacing }}
-        >
-          Load Sample Data
-        </button>
-        <button onClick={() => setParticipants("")}>Reset</button>
-      </div>
-      <ParticipantInput value={participants} onChange={setParticipants} />
+      <GroupConfig config={config} setConfig={setConfig} />
+      <SubgroupVisualization tags={tags} config={config} />
       <AvoidPairsConfig
         names={names}
         pairs={avoidPairs}
         onChange={(newPairs) => setAvoidPairs(newPairs)}
       />
-      <GroupConfig config={config} setConfig={setConfig} />
-      <SubgroupVisualization tags={tags} config={config} />
+    </>
+  );
+
+  const controls = (
+    <>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: theme.sizes.spacing * 4,
+        }}
+      >
+        <h1>Workshop Wizard</h1>
+        <p>
+          Facilitate workshops like a wizard. Effortlessly split participants in
+          multiple subgroups with zero hassle.
+        </p>
+        <ParticipantInput value={participants} onChange={setParticipants} />
+        <div>
+          <button
+            className="text-button"
+            onClick={() => setParticipants(sampleParticipants)}
+            style={{ marginRight: theme.sizes.spacing }}
+          >
+            Try with sample names
+          </button>
+          <button className="text-button" onClick={() => setParticipants("")}>
+            Reset
+          </button>
+        </div>
+      </div>
+      {hasParticipants && participantContent}
     </>
   );
 
@@ -51,15 +74,18 @@ const App: React.FC = () => {
         padding: theme.sizes.spacing * 4,
         display: "flex",
         flexDirection: "column",
-        gap: theme.sizes.spacing * 4,
+        gap: theme.sizes.spacing * 16,
+        width: "100%",
       }}
     >
       {!isPrintMode && controls}
-      <NameTagList
-        tags={tags}
-        isPrintMode={isPrintMode}
-        onPrintModeChange={(newValue) => setIsPrintMode(newValue)}
-      />
+      {hasParticipants && (
+        <NameTagList
+          tags={tags}
+          isPrintMode={isPrintMode}
+          onPrintModeChange={(newValue) => setIsPrintMode(newValue)}
+        />
+      )}
     </div>
   );
 };

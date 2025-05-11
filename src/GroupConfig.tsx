@@ -24,18 +24,31 @@ export const GroupConfig = ({
       }}
     >
       <label>
-        Numbers:
+        Numbers
         <input
+          style={{ marginLeft: theme.sizes.spacing }}
           type="number"
           min={2}
-          max={10}
+          max={6}
           value={config.numbers}
           onChange={(e) => setConfig({ ...config, numbers: +e.target.value })}
         />
       </label>
       <label>
-        Colors:
+        Letters
         <input
+          style={{ marginLeft: theme.sizes.spacing }}
+          type="number"
+          min={2}
+          max={6}
+          value={config.letters}
+          onChange={(e) => setConfig({ ...config, letters: +e.target.value })}
+        />
+      </label>
+      <label>
+        Colors
+        <input
+          style={{ marginLeft: theme.sizes.spacing }}
           type="number"
           min={2}
           max={colorKeys.length}
@@ -44,23 +57,14 @@ export const GroupConfig = ({
         />
       </label>
       <label>
-        Shapes:
+        Shapes
         <input
+          style={{ marginLeft: theme.sizes.spacing }}
           type="number"
           min={2}
           max={theme.shapes.length}
           value={config.shapes}
           onChange={(e) => setConfig({ ...config, shapes: +e.target.value })}
-        />
-      </label>
-      <label>
-        Letters:
-        <input
-          type="number"
-          min={2}
-          max={letters.length}
-          value={config.letters}
-          onChange={(e) => setConfig({ ...config, letters: +e.target.value })}
         />
       </label>
     </div>
