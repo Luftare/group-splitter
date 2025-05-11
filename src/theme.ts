@@ -19,3 +19,36 @@ export const theme = {
     spacing: 8,
   },
 };
+
+// Types
+export const colorKeys = Object.keys(theme.colors).filter(
+  (k) => !["background", "text", "shapeBg"].includes(k)
+);
+export const letters = [
+  "A",
+  "B",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+  "I",
+  "J",
+  "K",
+  "L",
+  "M",
+];
+
+export const sampleParticipants = `Alice
+Bob
+Charlie
+David
+Eve
+Frank
+Grace
+Heidi
+Ivan
+Jack
+Kelly
+Liam`;
