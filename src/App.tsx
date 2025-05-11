@@ -109,23 +109,25 @@ const NameTagList = ({ tags }: { tags: NameTagType[] }) => (
     ))}
   </div>
 );
-
 type GroupConfigType = {
   numbers: number;
-  letters: number;
   colors: number;
   shapes: number;
+  letters: number;
 };
-
 type NameTagType = {
   name: string;
   number: number;
-  letter: string;
   color: string;
   shape: string;
+  letter: string;
 };
 
-function assignGroups(names: string[], config: GroupConfigType): NameTagType[] {
+function assignGroups(
+  names: string[],
+  config: GroupConfigType,
+  avoidPairs: string[][]
+): NameTagType[] {
   const n = names.length;
 
   // --- 1) A tiny, deterministic PRNG (mulberry32) ---
@@ -150,12 +152,11 @@ function assignGroups(names: string[], config: GroupConfigType): NameTagType[] {
       [idx[i], idx[j]] = [idx[j], idx[i]];
     }
 
-    // 2b) figure out block sizes
+    // 2b) break into as‐even blocks as possible
     const base = Math.floor(n / count);
     const r = n % count;
     const groupOf = new Array<number>(n);
     let offset = 0;
-
     for (let g = 0; g < count; g++) {
       const size = base + (g < r ? 1 : 0);
       for (let k = 0; k < size; k++) {
@@ -163,25 +164,75 @@ function assignGroups(names: string[], config: GroupConfigType): NameTagType[] {
       }
       offset += size;
     }
-
     return groupOf;
   }
 
-  // --- 3) use three DIFFERENT seeds so the three layouts never align ---
+  // --- 3) Build all four partitions with distinct seeds ---
   const numberIdx = getGroupIndices(1, config.numbers);
   const colorIdx = getGroupIndices(2, config.colors);
   const shapeIdx = getGroupIndices(3, config.shapes);
   const letterIdx = getGroupIndices(4, config.letters);
 
+  // --- 4) Prepare avoid‐pair data & “diplomatic” pool ---
+  const avoidSet = new Set<string>();
+  avoidPairs.forEach((pair) => {
+    if (pair.length === 2) {
+      avoidSet.add(pair[0]);
+      avoidSet.add(pair[1]);
+    }
+  });
+  // indices of names *not* in any avoid‐pair
+  const diplomaticIndices = names
+    .map((nm, i) => (avoidSet.has(nm) ? -1 : i))
+    .filter((i) => i >= 0);
+
+  // seeded PRNG for picking diplomats
+  const pickDiplomat = mulberry32(5);
+
+  // helper to swap a single‐dimension index
+  function swapDim(arr: number[], i: number, j: number) {
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+
+  // --- 5) Naively break any conflicts ---
+  // for each avoid‐pair, for *each* dimension, if they collide, swap the 2nd person
+  // with a random diplomat
+  const nameToIndex = Object.fromEntries(names.map((nm, i) => [nm, i]));
+
+  avoidPairs.forEach((pair) => {
+    const [a, b] = pair;
+    const iA = nameToIndex[a],
+      iB = nameToIndex[b];
+    if (iA == null || iB == null) return; // skip invalid names
+
+    // for each dimension, check & fix
+    const dims = [
+      { arr: numberIdx },
+      { arr: colorIdx },
+      { arr: shapeIdx },
+      { arr: letterIdx },
+    ];
+
+    dims.forEach(({ arr }) => {
+      if (arr[iA] === arr[iB] && diplomaticIndices.length > 0) {
+        const pick =
+          diplomaticIndices[
+            Math.floor(pickDiplomat() * diplomaticIndices.length)
+          ];
+        swapDim(arr, iB, pick);
+      }
+    });
+  });
+
+  // --- 6) Map back to output objects ---
   return names.map((name, i) => ({
     name,
-    letter: letters[letterIdx[i]],
     number: numberIdx[i] + 1,
     color: colorKeys[colorIdx[i]],
     shape: theme.shapes[shapeIdx[i]],
+    letter: letters[letterIdx[i]],
   }));
 }
-
 const defaultConfig = { numbers: 4, letters: 4, colors: 4, shapes: 2 };
 
 const sampleParticipants = `Alice
@@ -310,7 +361,7 @@ const App: React.FC = () => {
     .split("\n")
     .map((n) => n.trim())
     .filter(Boolean);
-  const tags = assignGroups(names, config);
+  const tags = assignGroups(names, config, [["Charlie", "Eve"]]);
 
   return (
     <div
