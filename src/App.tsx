@@ -6,14 +6,21 @@ import "./App.css";
 const colorKeys = Object.keys(theme.colors).filter(
   (k) => !["background", "text", "shapeBg"].includes(k)
 );
-
-type GroupConfigType = { numbers: number; colors: number; shapes: number };
-type NameTagType = {
-  name: string;
-  number: number;
-  color: string;
-  shape: string;
-};
+const letters = [
+  "A",
+  "B",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+  "I",
+  "J",
+  "K",
+  "L",
+  "M",
+];
 
 // Stubs for now
 const ParticipantInput = ({
@@ -43,8 +50,8 @@ const GroupConfig = ({
       Numbers:
       <input
         type="number"
-        min={1}
-        max={99}
+        min={2}
+        max={10}
         value={config.numbers}
         onChange={(e) => setConfig({ ...config, numbers: +e.target.value })}
       />
@@ -53,7 +60,7 @@ const GroupConfig = ({
       Colors:
       <input
         type="number"
-        min={1}
+        min={2}
         max={colorKeys.length}
         value={config.colors}
         onChange={(e) => setConfig({ ...config, colors: +e.target.value })}
@@ -63,10 +70,20 @@ const GroupConfig = ({
       Shapes:
       <input
         type="number"
-        min={1}
+        min={2}
         max={theme.shapes.length}
         value={config.shapes}
         onChange={(e) => setConfig({ ...config, shapes: +e.target.value })}
+      />
+    </label>
+    <label>
+      Letters:
+      <input
+        type="number"
+        min={2}
+        max={letters.length}
+        value={config.letters}
+        onChange={(e) => setConfig({ ...config, letters: +e.target.value })}
       />
     </label>
   </div>
@@ -86,12 +103,27 @@ const NameTagList = ({ tags }: { tags: NameTagType[] }) => (
       >
         <div style={{ fontWeight: "bold" }}>{tag.name}</div>
         <div>
-          {tag.number} | {tag.color} | {tag.shape}
+          {tag.number} | {tag.color} | {tag.shape} | {tag.letter}
         </div>
       </div>
     ))}
   </div>
 );
+
+type GroupConfigType = {
+  numbers: number;
+  letters: number;
+  colors: number;
+  shapes: number;
+};
+
+type NameTagType = {
+  name: string;
+  number: number;
+  letter: string;
+  color: string;
+  shape: string;
+};
 
 function assignGroups(names: string[], config: GroupConfigType): NameTagType[] {
   const n = names.length;
@@ -139,16 +171,18 @@ function assignGroups(names: string[], config: GroupConfigType): NameTagType[] {
   const numberIdx = getGroupIndices(1, config.numbers);
   const colorIdx = getGroupIndices(2, config.colors);
   const shapeIdx = getGroupIndices(3, config.shapes);
+  const letterIdx = getGroupIndices(4, config.letters);
 
   return names.map((name, i) => ({
     name,
+    letter: letters[letterIdx[i]],
     number: numberIdx[i] + 1,
     color: colorKeys[colorIdx[i]],
     shape: theme.shapes[shapeIdx[i]],
   }));
 }
 
-const defaultConfig = { numbers: 4, colors: 4, shapes: 2 };
+const defaultConfig = { numbers: 4, letters: 4, colors: 4, shapes: 2 };
 
 const sampleParticipants = `Alice
 Bob
@@ -176,6 +210,7 @@ const SubgroupVisualization = ({
     for (let i = 0; i < count; ++i) {
       let groupKey: string;
       if (key === "number") groupKey = String(i + 1);
+      else if (key === "letter") groupKey = letters[i];
       else if (key === "color") groupKey = colorKeys[i];
       else if (key === "shape") groupKey = theme.shapes[i];
       else groupKey = "";
@@ -191,6 +226,7 @@ const SubgroupVisualization = ({
   const numberGroups = groupBy("number", config.numbers);
   const colorGroups = groupBy("color", config.colors);
   const shapeGroups = groupBy("shape", config.shapes);
+  const letterGroups = groupBy("letter", config.letters);
 
   return (
     <div style={{ marginTop: theme.sizes.spacing * 3 }}>
@@ -239,6 +275,20 @@ const SubgroupVisualization = ({
           {Object.entries(shapeGroups).map(([shape, members]) => (
             <div key={shape} style={{ marginBottom: theme.sizes.spacing }}>
               <strong>Shape {shape}:</strong>
+              <ul style={{ margin: 0 }}>
+                {members.map((name) => (
+                  <li key={name}>{name}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div>
+          <h3>By Letter</h3>
+          {Object.entries(letterGroups).map(([letter, members]) => (
+            <div key={letter} style={{ marginBottom: theme.sizes.spacing }}>
+              <strong>Letter {letter}:</strong>
               <ul style={{ margin: 0 }}>
                 {members.map((name) => (
                   <li key={name}>{name}</li>
