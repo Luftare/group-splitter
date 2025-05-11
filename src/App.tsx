@@ -94,34 +94,57 @@ const NameTagList = ({ tags }: { tags: NameTagType[] }) => (
 );
 
 function assignGroups(names: string[], config: GroupConfigType): NameTagType[] {
-  // Create arrays of indices for each grouping type
-  const numberIndices = Array.from(
-    { length: names.length },
-    (_, i) => i % config.numbers
-  ).sort((a, b) => a - b);
+  const n = names.length;
 
-  const colorIndices = Array.from(
-    { length: names.length },
-    (_, i) => i % config.colors
-  ).sort((a, b) => a - b);
+  // --- 1) A tiny, deterministic PRNG (mulberry32) ---
+  function mulberry32(seed: number) {
+    let a = seed;
+    return () => {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
 
-  // We "rotate" the array once to have different groups if splits are equal sized
-  colorIndices.push(colorIndices.shift() as number);
+  // --- 2) Shuffle + block‐partition for a given seed & subgroup count ---
+  function getGroupIndices(seed: number, count: number): number[] {
+    // 2a) build [0,1,2,...,n-1] and shuffle it
+    const idx = Array.from({ length: n }, (_, i) => i);
+    const rand = mulberry32(seed);
+    for (let i = n - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
 
-  const shapeIndices = Array.from(
-    { length: names.length },
-    (_, i) => i % config.shapes
-  ).sort((a, b) => a - b);
+    // 2b) figure out block sizes
+    const base = Math.floor(n / count);
+    const r = n % count;
+    const groupOf = new Array<number>(n);
+    let offset = 0;
 
-  // We "rotate" the array twice to have different groups if splits are equal sized
-  shapeIndices.push(shapeIndices.shift() as number);
-  shapeIndices.push(shapeIndices.shift() as number);
+    for (let g = 0; g < count; g++) {
+      const size = base + (g < r ? 1 : 0);
+      for (let k = 0; k < size; k++) {
+        groupOf[idx[offset + k]] = g;
+      }
+      offset += size;
+    }
+
+    return groupOf;
+  }
+
+  // --- 3) use three DIFFERENT seeds so the three layouts never align ---
+  const numberIdx = getGroupIndices(1, config.numbers);
+  const colorIdx = getGroupIndices(2, config.colors);
+  const shapeIdx = getGroupIndices(3, config.shapes);
 
   return names.map((name, i) => ({
     name,
-    number: numberIndices[i] + 1,
-    color: colorKeys[colorIndices[i]],
-    shape: theme.shapes[shapeIndices[i]],
+    number: numberIdx[i] + 1,
+    color: colorKeys[colorIdx[i]],
+    shape: theme.shapes[shapeIdx[i]],
   }));
 }
 
