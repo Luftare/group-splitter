@@ -1,4 +1,4 @@
-import { colorKeys, letters, theme } from "./theme";
+import { colorKeys, theme } from "./theme";
 import { GroupConfigType } from "./groupSplitter";
 
 export const GroupConfig = ({
