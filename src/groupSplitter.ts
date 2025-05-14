@@ -21,6 +21,8 @@ export function assignGroups(
   avoidPairs: string[][]
 ): NameTagType[] {
   const n = names.length;
+  // If no participants, nothing to assign
+  if (n === 0) return [];
 
   // --- 1) A tiny, deterministic PRNG (mulberry32) ---
   function mulberry32(seed: number) {
@@ -34,89 +36,102 @@ export function assignGroups(
     };
   }
 
-  // --- 2) Shuffle + block‐partition for a given seed & subgroup count ---
+  // --- 2) Map names to indices and build avoid-pair set ---
+  const nameToIndex: { [key: string]: number } = Object.fromEntries(
+    names.map((nm, i) => [nm, i])
+  );
+  function pairKey(i: number, j: number) {
+    return i < j ? `${i}:${j}` : `${j}:${i}`;
+  }
+  const avoidSet = new Set<string>();
+  avoidPairs.forEach(([a, b]) => {
+    const i = nameToIndex[a];
+    const j = nameToIndex[b];
+    if (i != null && j != null) {
+      avoidSet.add(pairKey(i, j));
+    }
+  });
+
+  // --- 3) Initial seeded block-partition ---
   function getGroupIndices(seed: number, count: number): number[] {
-    // 2a) build [0,1,2,...,n-1] and shuffle it
     const idx = Array.from({ length: n }, (_, i) => i);
     const rand = mulberry32(seed);
-    for (let i = n - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1));
-      [idx[i], idx[j]] = [idx[j], idx[i]];
+    for (let k = n - 1; k > 0; k--) {
+      const j = Math.floor(rand() * (k + 1));
+      [idx[k], idx[j]] = [idx[j], idx[k]];
     }
-
-    // 2b) break into as‐even blocks as possible
     const base = Math.floor(n / count);
     const r = n % count;
     const groupOf = new Array<number>(n);
     let offset = 0;
     for (let g = 0; g < count; g++) {
       const size = base + (g < r ? 1 : 0);
-      for (let k = 0; k < size; k++) {
-        groupOf[idx[offset + k]] = g;
+      for (let m = 0; m < size; m++) {
+        groupOf[idx[offset + m]] = g;
       }
       offset += size;
     }
     return groupOf;
   }
 
-  // --- 3) Build all four partitions with distinct seeds ---
-  const numberIdx = getGroupIndices(1, config.numbers);
-  const colorIdx = getGroupIndices(2, config.colors);
-  const shapeIdx = getGroupIndices(3, config.shapes);
-  const letterIdx = getGroupIndices(4, config.letters);
-
-  // --- 4) Prepare avoid‐pair data & “diplomatic” pool ---
-  const avoidSet = new Set<string>();
-  avoidPairs.forEach((pair) => {
-    if (pair.length === 2) {
-      avoidSet.add(pair[0]);
-      avoidSet.add(pair[1]);
+  // --- 4) Greedy + Local-Search for one dimension ---
+  function localSearchGroupIndices(seed: number, count: number): number[] {
+    const groupOf = getGroupIndices(seed, count);
+    const groupMembers: number[][] = Array.from({ length: count }, () => []);
+    for (let i = 0; i < n; i++) {
+      groupMembers[groupOf[i]].push(i);
     }
-  });
-  // indices of names *not* in any avoid‐pair
-  const diplomaticIndices = names
-    .map((nm, i) => (avoidSet.has(nm) ? -1 : i))
-    .filter((i) => i >= 0);
+    const rand = mulberry32(seed + 12345); // separate RNG for search
+    let noImprove = 0;
+    const maxNoImprove = 10000;
 
-  // seeded PRNG for picking diplomats
-  const pickDiplomat = mulberry32(5);
+    function costMember(idx: number, grp: number, exclude?: number): number {
+      let cost = 0;
+      for (const other of groupMembers[grp]) {
+        if (other === idx || other === exclude) continue;
+        if (avoidSet.has(pairKey(idx, other))) cost++;
+      }
+      return cost;
+    }
 
-  // helper to swap a single‐dimension index
-  function swapDim(arr: number[], i: number, j: number) {
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    while (noImprove < maxNoImprove) {
+      const i = Math.floor(rand() * n);
+      let j = i;
+      while (j === i) {
+        j = Math.floor(rand() * n);
+      }
+      const gi = groupOf[i];
+      const gj = groupOf[j];
+      if (gi === gj) {
+        noImprove++;
+        continue;
+      }
+      const costBefore = costMember(i, gi) + costMember(j, gj);
+      const costAfter = costMember(i, gj, j) + costMember(j, gi, i);
+      if (costAfter < costBefore) {
+        // swap in groupMembers
+        const idxI = groupMembers[gi].indexOf(i);
+        const idxJ = groupMembers[gj].indexOf(j);
+        groupMembers[gi][idxI] = j;
+        groupMembers[gj][idxJ] = i;
+        // swap groupOf
+        groupOf[i] = gj;
+        groupOf[j] = gi;
+        noImprove = 0;
+      } else {
+        noImprove++;
+      }
+    }
+    return groupOf;
   }
 
-  // --- 5) Naively break any conflicts ---
-  // for each avoid‐pair, for *each* dimension, if they collide, swap the 2nd person
-  // with a random diplomat
-  const nameToIndex = Object.fromEntries(names.map((nm, i) => [nm, i]));
+  // --- 5) Compute indices for all four partitions ---
+  const numberIdx = localSearchGroupIndices(1, config.numbers);
+  const colorIdx = localSearchGroupIndices(2, config.colors);
+  const shapeIdx = localSearchGroupIndices(3, config.shapes);
+  const letterIdx = localSearchGroupIndices(4, config.letters);
 
-  avoidPairs.forEach((pair) => {
-    const [a, b] = pair;
-    const iA = nameToIndex[a],
-      iB = nameToIndex[b];
-    if (iA == null || iB == null) return; // skip invalid names
-
-    // for each dimension, check & fix
-    const dims = [
-      { arr: numberIdx },
-      { arr: colorIdx },
-      { arr: shapeIdx },
-      { arr: letterIdx },
-    ];
-
-    dims.forEach(({ arr }) => {
-      if (arr[iA] === arr[iB] && diplomaticIndices.length > 0) {
-        const pick =
-          diplomaticIndices[
-            Math.floor(pickDiplomat() * diplomaticIndices.length)
-          ];
-        swapDim(arr, iB, pick);
-      }
-    });
-  });
-
-  // --- 6) Map back to output objects ---
+  // --- 6) Map back to NameTagType objects ---
   return names.map((name, i) => ({
     name,
     number: numberIdx[i] + 1,
